@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "box_rate_projection.h"
 
+#define ABS_ERROR_TOL (1e-4f)
 
 /* Some inputs/results for 2 dimensional projection */
 float x0_2dim_1[2] = {3.0000, 0.0000};
@@ -26,7 +27,9 @@ float x0_2dim_10[2] = {0.1, 0.1};
 float res_2dim_10[2] = {0.1, 0.1};
 
 
-/* Some inputs/results for DYKSTRA unit tests */
+/* Some inputs/results for DYKSTRA unit tests with dimension = 10 */
+const int brp_dim = 10;
+
 float x0_1[10] = {1.0166, 27.8734, -11.6667, -18.5430, -11.4068, -10.9334, -4.3361, -1.6847, -2.1853, 5.4133};
 float res_1[10] = {1.0000, 1.0000, -0.0000, -1.0000, -1.0000, -1.0001, -1.0000, -1.0000, -0.0000, 1.0000};
 
@@ -45,7 +48,7 @@ float res_5[10] = {-1.0000, 0.0000, 1.0000, 1.0000, 1.0000, 0.0000, -1.0000, -1.
 float x0_99[10] = {1.0000, 2.0000, 3.0000, 4.0000, 5.0000, 6.0000, 7.0000, 8.0000, 9.0000, 10.0000};
 float res_99[10] = {1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000};
 
-float out[DIM];
+float out[10];
 
 float calc_error(const float * in1, const float * in2, const int len) {
 	int i;
@@ -55,116 +58,95 @@ float calc_error(const float * in1, const float * in2, const int len) {
 	return error;
 }
 
-void debug_symmetric_dykstra(void) {
-	float error;
-
-	assert(DIM == 10);
-	assert(A_MAX == 1.0);
-	assert(R_MAX == 1.0);
-
-	// 99
-	//symmetric_box_rate_projection(x0_99, out);
-	//error = calc_error(out, res_99, DIM);
-	symmetric_box_rate_projection(x0_2, out);
-	error = calc_error(out, res_2, DIM);
-	printf("Trial 99 error = %.6f\n", error);
-}
-
 void test_symmetric_dykstra(void) {
+	printf("Testing test_symmetric_dykstra()...\n");
 	float error;
+#ifdef BRP_EMBEDDED
+	assert(BRP_DIM == 10);
+#else
+	BRP_initialize(brp_dim);
+#endif
 
-	assert(DIM == 10);
-	assert(A_MAX == 1.0);
-	assert(R_MAX == 1.0);
-
+	assert(BRP_A_MAX == 1.0);
+	assert(BRP_R_MAX == 1.0);
 	// 1
 	symmetric_box_rate_projection(x0_1, out);
-	error = calc_error(out, res_1, DIM);
-	printf("Trial 1 error = %.6f\n", error);
-
+	error = calc_error(out, res_1, brp_dim);
+	assert(error < ABS_ERROR_TOL);
 	// 2
 	symmetric_box_rate_projection(x0_2, out);
-	error = calc_error(out, res_2, DIM);
-	printf("Trial 2 error = %.6f\n", error);
-
+	error = calc_error(out, res_2, brp_dim);
+	assert(error < ABS_ERROR_TOL);
 	// 3
 	symmetric_box_rate_projection(x0_3, out);
-	error = calc_error(out, res_3, DIM);
-	printf("Trial 3 error = %.6f\n", error);
-
+	error = calc_error(out, res_3, brp_dim);
+	assert(error < ABS_ERROR_TOL);
 	// 4
 	symmetric_box_rate_projection(x0_4, out);
-	error = calc_error(out, res_4, DIM);
-	printf("Trial 4 error = %.6f\n", error);
-
+	error = calc_error(out, res_4, brp_dim);
+	assert(error < ABS_ERROR_TOL);
 	// 5
 	symmetric_box_rate_projection(x0_5, out);
-	error = calc_error(out, res_5, DIM);
-	printf("Trial 5 error = %.6f\n", error);
+	error = calc_error(out, res_5, brp_dim);
+	assert(error < ABS_ERROR_TOL);
+#ifndef BRP_EMBEDDED
+	BRP_finalize();
+#endif
+	printf("Test test_symmetric_dykstra() passed.\n");
 }
 
 void test_2dim_projection(void) {
+	printf("Testing test_2dim_projection()...\n");
 	float error;
 	float out_2dim[2];
-	assert(A_MAX == 1.0);
-	assert(R_MAX == 1.0);
-
+	assert(BRP_A_MAX == 1.0);
+	assert(BRP_R_MAX == 1.0);
 	// 1
 	box_rate_proj_2dim(x0_2dim_1, out_2dim);
 	error = calc_error(out_2dim, res_2dim_1, 2);
-	printf("Trial 2DIM 1 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 2
 	box_rate_proj_2dim(x0_2dim_2, out_2dim);
 	error = calc_error(out_2dim, res_2dim_2, 2);
-	printf("Trial 2DIM 2 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 3
 	box_rate_proj_2dim(x0_2dim_3, out_2dim);
 	error = calc_error(out_2dim, res_2dim_3, 2);
-	printf("Trial 2DIM 3 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 4
 	box_rate_proj_2dim(x0_2dim_4, out_2dim);
 	error = calc_error(out_2dim, res_2dim_4, 2);
-	printf("Trial 2DIM 4 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 5
 	box_rate_proj_2dim(x0_2dim_5, out_2dim);
 	error = calc_error(out_2dim, res_2dim_5, 2);
-	printf("Trial 2DIM 5 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 6
 	box_rate_proj_2dim(x0_2dim_6, out_2dim);
 	error = calc_error(out_2dim, res_2dim_6, 2);
-	printf("Trial 2DIM 6 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 7
 	box_rate_proj_2dim(x0_2dim_7, out_2dim);
 	error = calc_error(out_2dim, res_2dim_7, 2);
-	printf("Trial 2DIM 7 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 8
 	box_rate_proj_2dim(x0_2dim_8, out_2dim);
 	error = calc_error(out_2dim, res_2dim_8, 2);
-	printf("Trial 2DIM 8 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 9
 	box_rate_proj_2dim(x0_2dim_9, out_2dim);
 	error = calc_error(out_2dim, res_2dim_9, 2);
-	printf("Trial 2DIM 9 error = %.6f\n", error);
-
+	assert(error < ABS_ERROR_TOL);
 	// 10
 	box_rate_proj_2dim(x0_2dim_10, out_2dim);
 	error = calc_error(out_2dim, res_2dim_10, 2);
-	printf("Trial 2DIM 10 error = %.6f\n", error);
+	assert(error < ABS_ERROR_TOL);
+	printf("Test test_2dim_projection() passed.\n");
 }
 
 int main() {
-	//debug_symmetric_dykstra();
 
-	//test_2dim_projection();
-
+	test_2dim_projection();
 	test_symmetric_dykstra();
 
 	return 0;
