@@ -2,71 +2,71 @@
 #include "box_rate_projection.h"
 
 #ifdef BRP_EMBEDDED
-float proj_set_1[BRP_DIM];
-float corr_set_1[BRP_DIM];
-float corr_set_2[BRP_DIM];
-float arr_to_proj[BRP_DIM];
+brp_float proj_set_1[BRP_DIM];
+brp_float corr_set_1[BRP_DIM];
+brp_float corr_set_2[BRP_DIM];
+brp_float arr_to_proj[BRP_DIM];
 #else
 #include <stdlib.h> // for malloc
 #include <assert.h>
-float * proj_set_1;
-float * corr_set_1;
-float * corr_set_2;
-float * arr_to_proj;
+brp_float * proj_set_1;
+brp_float * corr_set_1;
+brp_float * corr_set_2;
+brp_float * arr_to_proj;
 int BRP_DIM;
 int BRP_is_initialized = 0;
 #endif
 
 
 // TODO: undo hard-coded values here and allow user to pass an array of limits
-const float RDIAG_MIN = BRP_R_MAX - 2 * BRP_A_MAX;     // used for point location
-const float RDIAG_MAX = 2 * BRP_A_MAX - BRP_R_MAX;     // used for point location
-const float A_MAX_MINUS_R_MAX = BRP_A_MAX - BRP_R_MAX; // used for fixed-point projection
-const float R_MAX_MINUS_A_MAX = BRP_R_MAX - BRP_A_MAX; // used for fixed-point projection
+const brp_float RDIAG_MIN = BRP_R_MAX - 2 * BRP_A_MAX;     // used for point location
+const brp_float RDIAG_MAX = 2 * BRP_A_MAX - BRP_R_MAX;     // used for point location
+const brp_float A_MAX_MINUS_R_MAX = BRP_A_MAX - BRP_R_MAX; // used for fixed-point projection
+const brp_float R_MAX_MINUS_A_MAX = BRP_R_MAX - BRP_A_MAX; // used for fixed-point projection
 
-float BRP_min(float in1, float in2) {
+brp_float BRP_min(brp_float in1, brp_float in2) {
 	return (in1 > in2) ? in2 : in1;
 }
 
-float BRP_max(float in1, float in2) {
+brp_float BRP_max(brp_float in1, brp_float in2) {
 	return (in1 > in2) ? in1 : in2;
 }
 
-float BRP_abs_float(float in) {
+brp_float BRP_abs_float(brp_float in) {
 	return (in > 0) ? in : -in;
 }
 
-float BRP_inf_norm(const float * in, const int len) {
+brp_float BRP_inf_norm(const brp_float * in, const int len) {
 	int i;
-	float max_val = BRP_abs_float(in[0]);
+	brp_float max_val = BRP_abs_float(in[0]);
 	for (i = 1; i <len; i++)
 		max_val = BRP_max(BRP_abs_float(in[i]), max_val);
 	return max_val;
 }
 
-float BRP_inf_norm_error(const float * in1, const float * in2, const int len) {
+brp_float BRP_inf_norm_error(const brp_float * in1, const brp_float * in2, const int len) {
 	int i;
-	float max_val = BRP_abs_float(in1[0] - in2[0]);
+	brp_float max_val = BRP_abs_float(in1[0] - in2[0]);
 	for (i = 1; i < len; i++)
 		max_val = BRP_max(BRP_abs_float(in1[i] - in2[i]), max_val);
 	return max_val;
 }
 
-void BRP_vec_sub(const float * restrict in1, const float * restrict in2, float * restrict out, const int len) {
+void BRP_vec_sub(const brp_float * restrict in1, const brp_float * restrict in2, brp_float * restrict out, const int len) {
 	int i;
 	for (i = 0; i < len; i++) {
 		out[i] = in1[i] - in2[i];
 	}
 }
 
-void BRP_vec_add(const float * restrict in1, const float * restrict in2, float * restrict out, const int len) {
+void BRP_vec_add(const brp_float * restrict in1, const brp_float * restrict in2, brp_float * restrict out, const int len) {
 	int i;
 	for (i = 0; i < len; i++) {
 		out[i] = in1[i] + in2[i];
 	}
 }
 
-void BRP_vec_copy(const float * restrict in1, float * restrict out, const int len) {
+void BRP_vec_copy(const brp_float * restrict in1, brp_float * restrict out, const int len) {
 	int i;
 	for (i = 0; i < len; i++) {
 		out[i] = in1[i];
@@ -76,20 +76,20 @@ void BRP_vec_copy(const float * restrict in1, float * restrict out, const int le
 #ifndef BRP_EMBEDDED
 void BRP_initialize(const int dim) {
 	BRP_DIM = dim;
-	proj_set_1 = (float *)malloc(BRP_DIM * sizeof(float));
+	proj_set_1 = (brp_float *)malloc(BRP_DIM * sizeof(brp_float));
 	assert(proj_set_1);
-	corr_set_1 = (float *)malloc(BRP_DIM * sizeof(float));
+	corr_set_1 = (brp_float *)malloc(BRP_DIM * sizeof(brp_float));
 	if (!corr_set_1) {
 		free(proj_set_1);
 		assert(corr_set_1);
 	}
-	corr_set_2 = (float *)malloc(BRP_DIM * sizeof(float));
+	corr_set_2 = (brp_float *)malloc(BRP_DIM * sizeof(brp_float));
 	if (!corr_set_2) {
 		free(proj_set_1);
 		free(corr_set_1);
 		assert(corr_set_2);
 	}
-	arr_to_proj = (float *)malloc(BRP_DIM * sizeof(float));
+	arr_to_proj = (brp_float *)malloc(BRP_DIM * sizeof(brp_float));
 	if (!arr_to_proj) {
 		free(proj_set_1);
 		free(corr_set_1);
@@ -111,8 +111,8 @@ void BRP_finalize(void) {
 /*
  * Projects a 2-dimensional vector onto the symmetric rate-amplitude constraint set
  */
-void box_rate_proj_2dim(const float * restrict in, float * restrict out) {
-	const float rdiag = in[0] + in[1];
+void box_rate_proj_2dim(const brp_float * restrict in, brp_float * restrict out) {
+	const brp_float rdiag = in[0] + in[1];
 
 	if (rdiag <= RDIAG_MIN) {
 		if (in[1] >= R_MAX_MINUS_A_MAX) { // map to corner C1
@@ -137,7 +137,7 @@ void box_rate_proj_2dim(const float * restrict in, float * restrict out) {
 			out[1] = BRP_min(BRP_A_MAX, in[1]);
 		}
 	} else { // project onto diagonal lines defined by rate constraints
-		const float ldiag = BRP_max(-BRP_R_MAX, BRP_min(BRP_R_MAX, in[0] - in[1])); // project onto [1,-1]-diagonal and truncate
+		const brp_float ldiag = BRP_max(-BRP_R_MAX, BRP_min(BRP_R_MAX, in[0] - in[1])); // project onto [1,-1]-diagonal and truncate
 		out[0] = 0.5 * ldiag + 0.5 * rdiag; // reconstruct first coordinate in original basis
 		out[1] = -0.5 * ldiag + 0.5 * rdiag; // reconstruct second coordinate in original basis
 	}
@@ -149,7 +149,7 @@ void box_rate_proj_2dim(const float * restrict in, float * restrict out) {
  * where the projections for S_even and S_odd are known. To project onto S_even,
  * pass start_index = 0. To project onto S_odd, pass start_index = 1.
  */
-void box_rate_proj_odd_even(const float * restrict in, float * restrict out, const int start_index, const int dim) {
+void box_rate_proj_odd_even(const brp_float * restrict in, brp_float * restrict out, const int start_index, const int dim) {
 	int i_set;
 	for (i_set = start_index; i_set < (dim - 1); i_set+=2) {
 		box_rate_proj_2dim(in + i_set, out + i_set); // modifies out[i_set] and out[i_set + 1]
@@ -168,9 +168,9 @@ void box_rate_proj_odd_even(const float * restrict in, float * restrict out, con
 }
 
 /* Dykstra's algorithm for two sets */
-void symmetric_box_rate_projection(const float * restrict in, float * restrict out) {
+void symmetric_box_rate_projection(const brp_float * restrict in, brp_float * restrict out) {
 	int i_iter;
-	float abs_error, last_iter_inf_norm;
+	brp_float abs_error, last_iter_inf_norm;
 	// NOTE: we use out for proj_set_2
 
 #ifndef BRP_EMBEDDED
@@ -195,8 +195,8 @@ void symmetric_box_rate_projection(const float * restrict in, float * restrict o
 		box_rate_proj_odd_even(arr_to_proj, out, 0, BRP_DIM);
 		BRP_vec_sub(arr_to_proj, out, corr_set_2, BRP_DIM);
 
-		/* Check for termination */
-		if ((BRP_CHECK_TERMINATION) && (i_iter % BRP_CHECK_TERMINATION == 0)) {
+		/* Check for termination: always check first iterate */
+		if ((i_iter == 1) || ((BRP_CHECK_TERMINATION) && (i_iter % BRP_CHECK_TERMINATION == 0))) {
 			abs_error = BRP_inf_norm_error(out, proj_set_1, BRP_DIM);
 			if (abs_error == 0) {
 				break;
@@ -219,15 +219,15 @@ void symmetric_box_rate_projection(const float * restrict in, float * restrict o
 #define FIRST_SET_NUM (0)
 #define LAST_SET_NUM (N_SETS - 1)
 
-float proj_per_set[BRP_DIM * N_SETS];
-float diff_per_set[BRP_DIM * N_SETS];
+brp_float proj_per_set[BRP_DIM * N_SETS];
+brp_float diff_per_set[BRP_DIM * N_SETS];
 
-float * get_set_ptr(float * const in, const int set_num) { // set_num goes from 0 to N_SETS - 1
+brp_float * get_set_ptr(brp_float * const in, const int set_num) { // set_num goes from 0 to N_SETS - 1
 	return (in + set_num * BRP_DIM);
 }
 
-void box_rate_proj_2dim_inplace(float * in_out) {
-	const float rdiag = in_out[0] + in_out[1];
+void box_rate_proj_2dim_inplace(brp_float * in_out) {
+	const brp_float rdiag = in_out[0] + in_out[1];
 
 	if (rdiag <= RDIAG_MIN) {
 		if (in_out[1] >= R_MAX_MINUS_A_MAX) { // map to corner C1
@@ -252,14 +252,14 @@ void box_rate_proj_2dim_inplace(float * in_out) {
 			in_out[1] = BRP_min(BRP_A_MAX, in_out[1]);
 		}
 	} else { // project onto diagonal lines defined by rate constraints
-		const float ldiag = BRP_max(-BRP_R_MAX, BRP_min(BRP_R_MAX, in_out[0] - in_out[1])); // project onto [1,-1]-diagonal and truncate
+		const brp_float ldiag = BRP_max(-BRP_R_MAX, BRP_min(BRP_R_MAX, in_out[0] - in_out[1])); // project onto [1,-1]-diagonal and truncate
 		in_out[0] = 0.5 * ldiag + 0.5 * rdiag; // reconstruct first coordinate in original basis
 		in_out[1] = -0.5 * ldiag + 0.5 * rdiag; // reconstruct second coordinate in original basis
 	}
 }
 
 /* Dykstra's algorithm */
-void symmetric_box_rate_projection(const float * restrict in, float * restrict out) {
+void symmetric_box_rate_projection(const brp_float * restrict in, brp_float * restrict out) {
 	int i_iter, i_set;
 
 	/* Initialize algorithm */
