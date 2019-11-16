@@ -144,6 +144,48 @@ void box_rate_proj_2dim(const brp_float * restrict in, brp_float * restrict out)
 }
 
 /*
+ * Projects a 2-dimensional vector onto the symmetric rate-amplitude constraint set
+ * Uses the provided limits.
+ */
+void box_rate_proj_2dim_w_limits(const brp_float * restrict in, brp_float * restrict out,
+								 const brp_float r_max, const brp_float a_max) {
+	const brp_float rdiag_min = r_max - 2 * a_max;
+	const brp_float rdiag_max = 2 * a_max - r_max;
+
+	const brp_float rdiag = in[0] + in[1];
+
+	if (rdiag <= rdiag_min) {
+		const brp_float r_max_minus_a_max = r_max - a_max;
+		if (in[1] >= r_max_minus_a_max) { // map to corner C1
+			out[0] = -a_max;
+			out[1] = r_max_minus_a_max;
+		} else if (in[0] >= r_max_minus_a_max) { // map to corner C4
+			out[0] = r_max_minus_a_max;
+			out[1] = -a_max;
+		} else { // project onto lower left corner of the box
+			out[0] = BRP_max(-a_max, in[0]);
+			out[1] = BRP_max(-a_max, in[1]);
+		}
+	} else if (rdiag >= rdiag_max) {
+		const brp_float a_max_minus_r_max = a_max - r_max;
+		if (in[1] <= a_max_minus_r_max) { // map to corner C3
+			out[0] = a_max;
+			out[1] = a_max_minus_r_max;
+		} else if (in[0] <= a_max_minus_r_max) { // map to corner C2
+			out[0] = a_max_minus_r_max;
+			out[1] = a_max;
+		} else { // project onto upper right corner of the box
+			out[0] = BRP_min(a_max, in[0]);
+			out[1] = BRP_min(a_max, in[1]);
+		}
+	} else { // project onto diagonal lines defined by rate constraints
+		const brp_float ldiag = BRP_max(-r_max, BRP_min(r_max, in[0] - in[1])); // project onto [1,-1]-diagonal and truncate
+		out[0] = 0.5 * ldiag + 0.5 * rdiag; // reconstruct first coordinate in original basis
+		out[1] = -0.5 * ldiag + 0.5 * rdiag; // reconstruct second coordinate in original basis
+	}
+}
+
+/*
  * This function is used when S = S_0 n S_1 n ... n S_N-2 is split into
  * S_even = S_0 n S_2 n ... AND S_odd = S_1 n S_3 n ...
  * where the projections for S_even and S_odd are known. To project onto S_even,
@@ -197,6 +239,54 @@ void symmetric_box_rate_projection(const brp_float * restrict in, brp_float * re
 
 		/* Check for termination: always check first iterate */
 		if ((i_iter == 1) || ((BRP_CHECK_TERMINATION) && (i_iter % BRP_CHECK_TERMINATION == 0))) {
+			//abs_error = BRP_inf_norm_error(out, proj_set_1, BRP_DIM);
+			abs_error = BRP_inf_norm_error(out, proj_set_1, BRP_DIM);
+			if (abs_error == 0) {
+				break;
+			} else {
+				last_iter_inf_norm = BRP_inf_norm(out, BRP_DIM);
+				if (last_iter_inf_norm == 0) {
+					break;
+				} else {
+					if ((abs_error < BRP_EPS_ABS) && (abs_error < BRP_EPS_REL * last_iter_inf_norm))
+						break;
+				}
+			}
+		}
+	}
+}
+
+/* Dykstra's algorithm for two sets */
+void box_rate_projection_mpc(const brp_float * restrict in, brp_float * restrict out) {
+	int i_iter;
+	brp_float abs_error, last_iter_inf_norm;
+	// NOTE: we use out for proj_set_2
+
+#ifndef BRP_EMBEDDED
+	assert(BRP_is_initialized == 1);
+#endif
+
+	/* First iteration */
+	box_rate_proj_odd_even(in, proj_set_1, 1, BRP_DIM);
+	BRP_vec_sub(in, proj_set_1, corr_set_1, BRP_DIM);
+
+	box_rate_proj_odd_even(proj_set_1, out, 0, BRP_DIM);
+	BRP_vec_sub(proj_set_1, out, corr_set_2, BRP_DIM);
+
+	for (i_iter = 1; i_iter < BRP_MAX_ITER; i_iter++) {
+		/* Set 1 */
+		BRP_vec_add(out, corr_set_1, arr_to_proj, BRP_DIM);
+		box_rate_proj_odd_even(arr_to_proj, proj_set_1, 1, BRP_DIM);
+		BRP_vec_sub(arr_to_proj, proj_set_1, corr_set_1, BRP_DIM);
+
+		/* Set 2 */
+		BRP_vec_add(proj_set_1, corr_set_2, arr_to_proj, BRP_DIM);
+		box_rate_proj_odd_even(arr_to_proj, out, 0, BRP_DIM);
+		BRP_vec_sub(arr_to_proj, out, corr_set_2, BRP_DIM);
+
+		/* Check for termination: always check first iterate */
+		if ((i_iter == 1) || ((BRP_CHECK_TERMINATION) && (i_iter % BRP_CHECK_TERMINATION == 0))) {
+			//abs_error = BRP_inf_norm_error(out, proj_set_1, BRP_DIM);
 			abs_error = BRP_inf_norm_error(out, proj_set_1, BRP_DIM);
 			if (abs_error == 0) {
 				break;

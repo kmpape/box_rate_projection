@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "box_rate_projection.h"
+#include "brp_mpc_test_data.h"
 
 #define ABS_ERROR_TOL (1e-4f)
 
@@ -144,10 +145,61 @@ void test_2dim_projection(void) {
 	printf("Test test_2dim_projection() passed.\n");
 }
 
+void test_brp_mpc_projection_1(void) {
+	printf("Testing test_brp_mpc_projection_1()...\n");
+	brp_float error;
+	brp_float brp_mpc_out[brp_mpc_horiz_1 * brp_mpc_num_inputs_1];
+
+	// Initialize Projection
+	BRP_MPC_initialize(brp_mpc_horiz_1, brp_mpc_num_inputs_1,
+			brp_mpc_rate_limits_1, brp_mpc_ampl_limits_1);
+	BRP_MPC_initialize_projection(brp_old_input_1);
+
+	// Project
+	BRP_MPC_box_rate_projection(brp_mpc_x0_1, brp_mpc_out);
+
+	// Comperate with Matlab result
+	error = calc_error(brp_mpc_out, brp_mpc_xp_1,
+			brp_mpc_horiz_1 * brp_mpc_num_inputs_1);
+
+	assert(error < ABS_ERROR_TOL);
+
+	BRP_MPC_finalize();
+
+	printf("Test test_brp_mpc_projection_1() passed.\n");
+}
+
+void test_brp_mpc_projection_2(void) {
+	printf("Testing test_brp_mpc_projection_2()...\n");
+	brp_float error;
+	brp_float brp_mpc_out[brp_mpc_horiz_2 * brp_mpc_num_inputs_2];
+
+	// Initialize Projection
+	BRP_MPC_initialize(brp_mpc_horiz_2, brp_mpc_num_inputs_2,
+			brp_mpc_rate_limits_2, brp_mpc_ampl_limits_2);
+	BRP_MPC_initialize_projection(brp_old_input_2);
+
+	// Project
+	BRP_MPC_box_rate_projection(brp_mpc_x0_2, brp_mpc_out);
+
+	// Comperate with Matlab result
+	error = calc_error(brp_mpc_out, brp_mpc_xp_2,
+			brp_mpc_horiz_2 * brp_mpc_num_inputs_2);
+
+	assert(error < ABS_ERROR_TOL);
+
+	BRP_MPC_finalize();
+
+	printf("Test test_brp_mpc_projection_2() passed.\n");
+}
+
+
 int main() {
 
 	test_2dim_projection();
 	test_symmetric_dykstra();
+	test_brp_mpc_projection_1();
+	test_brp_mpc_projection_2();
 
 	return 0;
 }
